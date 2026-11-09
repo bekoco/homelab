@@ -75,12 +75,14 @@ spec:
             enabled: true
             storageClassName: local-path
             size: 2Gi
+          # 256Mi de limite provoquait des OOM kills (Grafana 13 + plugins) puis
+          # une boucle de redemarrages, reperee via la cible Prometheus DOWN
           resources:
             requests:
               cpu: 50m
-              memory: 128Mi
-            limits:
               memory: 256Mi
+            limits:
+              memory: 768Mi
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
