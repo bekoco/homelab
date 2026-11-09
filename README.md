@@ -5,7 +5,7 @@ Infrastructure complète d'une entreprise fictive, construite sur un serveur **P
 | Projet | Contenu | État |
 |---|---|---|
 | 0. Socle Proxmox | Sauvegardes planifiées, template Debian 12 cloud-init, compte Terraform à privilèges minimaux, bridge VLAN-aware | ✅ |
-| **1. Plateforme Kubernetes** | **Terraform crée les VMs, Ansible installe k3s, ArgoCD déploie en GitOps** (supervision à venir) | 🚧 |
+| **1. Plateforme Kubernetes** | **Terraform crée les VMs, Ansible installe k3s, ArgoCD déploie en GitOps, Prometheus + Grafana supervisent** (test de panne à venir) | 🚧 |
 | 2. Réseau automatisé | Fabric spine-leaf BGP/EVPN (containerlab), NetBox, Ansible, tests en CI | ⏳ |
 | 3. Sécurité hybride | OPNsense, VLANs, WireGuard, Suricata, Wazuh | ⏳ |
 
@@ -53,6 +53,13 @@ cd ansible && ./run.sh argocd.yml      # installe ArgoCD et l'application racine
 ```
 - Interface ArgoCD : http://argocd.192.168.11.201.nip.io
 - Application de démo : http://whoami.192.168.11.201.nip.io
+
+### Supervision
+`kube-prometheus-stack` (Prometheus, Alertmanager, Grafana, node-exporter, kube-state-metrics), déployé par ArgoCD comme n'importe quelle application ([k8s/apps/monitoring.yaml](k8s/apps/monitoring.yaml)).
+- Composants que k3s n'expose pas (controller-manager, scheduler, proxy, etcd) désactivés pour éviter de fausses alertes.
+- Données Prometheus persistantes (7 jours, volume `local-path`).
+- Identifiants Grafana dans un Secret créé hors de Git par `ansible/bootstrap-secrets.yml`.
+- Grafana : http://grafana.192.168.11.201.nip.io
 
 ### Tout détruire
 ```bash
