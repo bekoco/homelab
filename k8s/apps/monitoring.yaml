@@ -49,6 +49,10 @@ spec:
 
         alertmanager:
           alertmanagerSpec:
+            # Configuration globale fournie par l'AlertmanagerConfig "homelab"
+            # (k8s/monitoring-config), au lieu de la config par defaut du chart
+            alertmanagerConfiguration:
+              name: homelab
             resources:
               requests:
                 cpu: 10m

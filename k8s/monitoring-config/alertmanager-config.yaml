@@ -1,0 +1,47 @@
+# Post-mortem 2026-11-09, actions 1 et 2 : router les alertes.
+# Les URLs (secretes) sont dans le Secret "alertmanager-receivers", cree hors de
+# Git par ansible/bootstrap-secrets.yml a partir de ~/.homelab/*.txt
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: homelab
+  namespace: monitoring
+spec:
+  route:
+    receiver: discord
+    groupBy: [alertname, namespace]
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 12h
+    routes:
+      # Alerte "homme mort" : Watchdog est TOUJOURS active. On la transmet chaque
+      # minute a healthchecks.io, qui previent (sur Discord) quand elle s'arrete,
+      # c'est-a-dire quand Prometheus ou Alertmanager sont tombes.
+      - receiver: deadmans-switch
+        matchers:
+          - name: alertname
+            value: Watchdog
+            matchType: "="
+        groupWait: 0s
+        groupInterval: 1m
+        repeatInterval: 1m
+      # Alerte technique du chart, sans interet pour un humain
+      - receiver: "null"
+        matchers:
+          - name: alertname
+            value: InfoInhibitor
+            matchType: "="
+  receivers:
+    - name: "null"
+    - name: discord
+      discordConfigs:
+        - apiURL:
+            name: alertmanager-receivers
+            key: discord-webhook
+          sendResolved: true
+    - name: deadmans-switch
+      webhookConfigs:
+        - urlSecret:
+            name: alertmanager-receivers
+            key: healthchecks-url
+          sendResolved: false
