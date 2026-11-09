@@ -5,7 +5,7 @@ Infrastructure complète d'une entreprise fictive, construite sur un serveur **P
 | Projet | Contenu | État |
 |---|---|---|
 | 0. Socle Proxmox | Sauvegardes planifiées, template Debian 12 cloud-init, compte Terraform à privilèges minimaux, bridge VLAN-aware | ✅ |
-| **1. Plateforme Kubernetes** | **Terraform crée les VMs, Ansible installe k3s, ArgoCD déploie en GitOps, Prometheus + Grafana supervisent** (test de panne à venir) | 🚧 |
+| **1. Plateforme Kubernetes** | **Terraform crée les VMs, Ansible installe k3s, ArgoCD déploie en GitOps, Prometheus + Grafana supervisent, test de panne et post-mortem** | ✅ |
 | 2. Réseau automatisé | Fabric spine-leaf BGP/EVPN (containerlab), NetBox, Ansible, tests en CI | ⏳ |
 | 3. Sécurité hybride | OPNsense, VLANs, WireGuard, Suricata, Wazuh | ⏳ |
 
@@ -60,6 +60,14 @@ cd ansible && ./run.sh argocd.yml      # installe ArgoCD et l'application racine
 - Données Prometheus persistantes (7 jours, volume `local-path`).
 - Identifiants Grafana dans un Secret créé hors de Git par `ansible/bootstrap-secrets.yml`.
 - Grafana : http://grafana.192.168.11.201.nip.io
+
+### Résilience : test de panne
+Un nœud du cluster a été coupé brutalement pendant 7 minutes, avec des mesures automatiques ([`chaos/`](chaos/)).
+- ✅ L'application est restée disponible à 97,9 % et le cluster s'est rétabli seul.
+- ⚠️ La supervision était hébergée sur le nœud perdu : elle a été aveugle 7 min 36 s, **sans aucune alerte**.
+- ⚠️ Point de défaillance unique découvert : le contrôleur d'entrée Traefik n'a qu'un seul réplica.
+
+👉 [Post-mortem complet](docs/postmortem-2026-11-09-perte-k3s-agent-2.md) : chronologie, hypothèses et réalité, analyse, plan d'actions.
 
 ### Tout détruire
 ```bash
