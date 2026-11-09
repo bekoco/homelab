@@ -1,0 +1,3 @@
+---
+# Canal de version k3s (stable = derniere version stable)
+k3s_channel: stable

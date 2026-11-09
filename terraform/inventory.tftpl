@@ -1,0 +1,20 @@
+# Fichier genere par Terraform - ne pas modifier a la main
+[server]
+%{ for name, ip in servers ~}
+${name} ansible_host=${ip}
+%{ endfor ~}
+
+[agents]
+%{ for name, ip in agents ~}
+${name} ansible_host=${ip}
+%{ endfor ~}
+
+[k3s:children]
+server
+agents
+
+[k3s:vars]
+ansible_user=${user}
+ansible_ssh_private_key_file=${ssh_key}
+ansible_ssh_common_args='-o StrictHostKeyChecking=accept-new'
+ansible_python_interpreter=/usr/bin/python3

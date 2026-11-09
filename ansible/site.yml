@@ -1,0 +1,124 @@
+---
+# Installe un cluster k3s : 1 server + N agents
+# Lancement : cd ansible && ./run.sh
+
+- name: Preparation commune des noeuds
+  hosts: k3s
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Attendre que la VM reponde en SSH (premier demarrage cloud-init)
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+
+    - name: Attendre la fin de cloud-init
+      ansible.builtin.command: cloud-init status --wait
+      changed_when: false
+
+    - name: Collecter les infos systeme
+      ansible.builtin.setup:
+
+    - name: Installer les paquets de base
+      ansible.builtin.apt:
+        name: [qemu-guest-agent, curl, ca-certificates]
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    # L'agent ne peut demarrer que si l'option "agent" est activee sur la VM Proxmox
+    # (elle ajoute le port virtio). Desactivee pour l'instant dans Terraform, car
+    # l'image cloud ne contient pas l'agent -> amelioration : l'integrer au template.
+    - name: Verifier la presence du port virtio de l'agent QEMU
+      ansible.builtin.stat:
+        path: /dev/virtio-ports/org.qemu.guest_agent.0
+      register: qga_port
+
+    - name: Demarrer l'agent QEMU (Proxmox voit ainsi l'IP et peut arreter proprement la VM)
+      ansible.builtin.systemd_service:
+        name: qemu-guest-agent
+        state: started
+      when: qga_port.stat.exists
+
+- name: Installer le server k3s
+  hosts: server
+  become: true
+  vars_files: [vars.yml]
+  tasks:
+    - name: Installer k3s (server)
+      ansible.builtin.shell: >
+        set -o pipefail &&
+        curl -sfL https://get.k3s.io |
+        INSTALL_K3S_CHANNEL={{ k3s_channel }} sh -s - server
+        --node-ip {{ ansible_host }}
+        --tls-san {{ ansible_host }}
+        --write-kubeconfig-mode 600
+      args:
+        executable: /bin/bash
+        creates: /usr/local/bin/k3s
+
+    - name: Attendre le token du cluster
+      ansible.builtin.wait_for:
+        path: /var/lib/rancher/k3s/server/node-token
+
+    - name: Lire le token du cluster
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: k3s_token_raw
+      no_log: true
+
+    - name: Garder le token pour les agents
+      ansible.builtin.set_fact:
+        k3s_token: "{{ k3s_token_raw.content | b64decode | trim }}"
+      no_log: true
+
+    - name: Recuperer le kubeconfig sur le PC
+      ansible.builtin.fetch:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "{{ playbook_dir }}/../kubeconfig"
+        flat: true
+
+    - name: Pointer le kubeconfig vers l'IP du server
+      ansible.builtin.replace:
+        path: "{{ playbook_dir }}/../kubeconfig"
+        regexp: "https://127\\.0\\.0\\.1:6443"
+        replace: "https://{{ ansible_host }}:6443"
+      delegate_to: localhost
+      become: false
+
+- name: Installer les agents k3s
+  hosts: agents
+  become: true
+  vars_files: [vars.yml]
+  vars:
+    k3s_server: "{{ groups['server'][0] }}"
+  tasks:
+    - name: Installer k3s (agent) et rejoindre le cluster
+      ansible.builtin.shell: >
+        set -o pipefail &&
+        curl -sfL https://get.k3s.io |
+        INSTALL_K3S_CHANNEL={{ k3s_channel }}
+        K3S_URL=https://{{ hostvars[k3s_server].ansible_host }}:6443
+        K3S_TOKEN={{ hostvars[k3s_server].k3s_token }}
+        sh -s - agent --node-ip {{ ansible_host }}
+      args:
+        executable: /bin/bash
+        creates: /usr/local/bin/k3s
+      no_log: true
+
+- name: Verifier le cluster
+  hosts: server
+  become: true
+  tasks:
+    - name: Attendre que tous les noeuds soient Ready
+      ansible.builtin.command: k3s kubectl get nodes --no-headers
+      register: nodes
+      changed_when: false
+      retries: 30
+      delay: 10
+      until: >-
+        nodes.stdout_lines | length == groups['k3s'] | length and
+        nodes.stdout_lines | select('search', ' Ready ') | list | length == groups['k3s'] | length
+
+    - name: Etat du cluster
+      ansible.builtin.debug:
+        var: nodes.stdout_lines
