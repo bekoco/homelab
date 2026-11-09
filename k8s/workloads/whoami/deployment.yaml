@@ -14,6 +14,24 @@ spec:
       labels:
         app: whoami
     spec:
+      # Post-mortem 2026-11-09, action 6 : repartir les replicas sur des noeuds differents
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: whoami
+      # Post-mortem 2026-11-09, action 5 : recreer ailleurs apres 30 s au lieu de 5 min
+      tolerations:
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 30
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 30
       containers:
         - name: whoami
           image: traefik/whoami:v1.12.0
@@ -34,6 +52,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: whoami
+  annotations:
+    traefik.ingress.kubernetes.io/service.serverstransport: demo-fast-fail@kubernetescrd
 spec:
   selector:
     app: whoami
@@ -45,6 +65,8 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: whoami
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: demo-retry@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:

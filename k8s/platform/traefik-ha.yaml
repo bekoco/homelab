@@ -1,0 +1,33 @@
+# Post-mortem 2026-11-09, action 3 : Traefik etait un point de defaillance unique
+# (1 seul replica). On surcharge les valeurs du chart Traefik installe par k3s.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    deployment:
+      replicas: 2
+    # Jamais deux replicas sur le meme noeud
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+    # Toujours au moins un replica disponible pendant une maintenance
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+    # Si un noeud tombe, recreer le replica ailleurs apres 30 s au lieu de 5 min
+    tolerations:
+      - key: node.kubernetes.io/unreachable
+        operator: Exists
+        effect: NoExecute
+        tolerationSeconds: 30
+      - key: node.kubernetes.io/not-ready
+        operator: Exists
+        effect: NoExecute
+        tolerationSeconds: 30

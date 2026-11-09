@@ -1,0 +1,21 @@
+# Post-mortem 2026-11-09, action 4 : pendant les 55 s avant que Kubernetes ne
+# declare un noeud mort, une requete sur deux partait vers le pod disparu.
+#
+# 1) Abandonner vite une connexion qui ne repond pas (1 s au lieu de 30 s)
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: fast-fail
+spec:
+  forwardingTimeouts:
+    dialTimeout: 1s
+---
+# 2) ...puis renvoyer la requete vers un autre replica
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: retry
+spec:
+  retry:
+    attempts: 3
+    initialInterval: 50ms
