@@ -1,0 +1,20 @@
+# Interface web ArgoCD via l'ingress Traefik integre a k3s
+# nip.io : argocd.192.168.11.201.nip.io resout vers 192.168.11.201, sans DNS a gerer
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server
+  namespace: argocd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: argocd.192.168.11.201.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80

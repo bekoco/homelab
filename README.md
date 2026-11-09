@@ -5,7 +5,7 @@ Infrastructure complète d'une entreprise fictive, construite sur un serveur **P
 | Projet | Contenu | État |
 |---|---|---|
 | 0. Socle Proxmox | Sauvegardes planifiées, template Debian 12 cloud-init, compte Terraform à privilèges minimaux, bridge VLAN-aware | ✅ |
-| **1. Plateforme Kubernetes** | **Terraform crée les VMs, Ansible installe k3s** | 🚧 |
+| **1. Plateforme Kubernetes** | **Terraform crée les VMs, Ansible installe k3s, ArgoCD déploie en GitOps** (supervision à venir) | 🚧 |
 | 2. Réseau automatisé | Fabric spine-leaf BGP/EVPN (containerlab), NetBox, Ansible, tests en CI | ⏳ |
 | 3. Sécurité hybride | OPNsense, VLANs, WireGuard, Suricata, Wazuh | ⏳ |
 
@@ -37,6 +37,22 @@ cd terraform && terraform init && terraform apply
 cd ../ansible && ./run.sh
 export KUBECONFIG=$PWD/../kubeconfig && kubectl get nodes
 ```
+
+### GitOps avec ArgoCD
+ArgoCD surveille ce dépôt : **Git est la seule source de vérité**. Un `git push` suffit pour déployer, et une modification manuelle sur le cluster est automatiquement annulée (*self-heal*).
+
+```
+k8s/bootstrap/root-app.yaml   appliqué une fois : « app of apps » qui surveille k8s/apps
+k8s/apps/                      une Application ArgoCD par service
+k8s/argocd/                    configuration d'ArgoCD (gérée par ArgoCD lui-même)
+k8s/workloads/whoami/          application de démonstration
+```
+
+```bash
+cd ansible && ./run.sh argocd.yml      # installe ArgoCD et l'application racine
+```
+- Interface ArgoCD : http://argocd.192.168.11.201.nip.io
+- Application de démo : http://whoami.192.168.11.201.nip.io
 
 ### Tout détruire
 ```bash

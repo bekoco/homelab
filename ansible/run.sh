@@ -10,4 +10,11 @@ export ANSIBLE_STDOUT_CALLBACK=default
 export ANSIBLE_CALLBACK_RESULT_FORMAT=yaml
 export ANSIBLE_RETRY_FILES_ENABLED=False
 
-ansible-playbook -i inventory.ini site.yml "$@"
+# Playbook a lancer (site.yml par defaut), ex. : ./run.sh argocd.yml
+playbook="site.yml"
+if [[ $# -gt 0 && "$1" == *.yml ]]; then
+  playbook="$1"
+  shift
+fi
+
+ansible-playbook -i inventory.ini "$playbook" "$@"

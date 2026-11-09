@@ -1,0 +1,21 @@
+# Application racine ("app of apps") : ArgoCD surveille le dossier k8s/apps
+# et cree automatiquement toutes les applications qui y sont declarees.
+# Appliquee une seule fois par ansible/argocd.yml ; ensuite tout passe par Git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/bekoco/homelab.git
+    targetRevision: main
+    path: k8s/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
