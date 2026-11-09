@@ -1,0 +1,10 @@
+k3s-agent-1   svclb-traefik-b2ec1fc2-2b7g7
+k3s-agent-1   whoami-7d68fb5454-gswr7
+k3s-agent-2   prometheus-monitoring-kube-prometheus-prometheus-0
+k3s-agent-2   svclb-traefik-b2ec1fc2-hvwn6
+k3s-agent-2   traefik-6d84f47b94-kjfg4
+k3s-agent-2   whoami-7d68fb5454-fgtf2
+k3s-server    helm-install-traefik-99vmp
+k3s-server    helm-install-traefik-crd-n92wk
+k3s-server    svclb-traefik-b2ec1fc2-945hl
+k3s-server    traefik-6d84f47b94-5jpgk

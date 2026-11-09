@@ -1,0 +1,6 @@
+1794228942 BASELINE debut (60 s)
+1794229002 PANNE arret brutal de la VM 103 (k3s-agent-2) -> HTTP 200
+1794229422 REPRISE demarrage de la VM 103 -> HTTP 200
+1794229448 NODE_READY k3s-agent-2 de nouveau Ready
+1794229448 OBSERVATION apres reprise (120 s)
+1794229568 FIN

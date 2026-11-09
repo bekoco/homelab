@@ -71,7 +71,9 @@ Après la reprise, les deux réplicas `whoami` sont restés sur `k3s-agent-1` et
 - ArgoCD n'a rien eu à corriger : l'état réel est revenu conforme à Git.
 - Le test lui-même est **automatisé, mesuré et reproductible** : les mêmes commandes donnent les mêmes mesures.
 
-## Actions
+## Actions décidées après le test 1
+*Les actions 1 à 6 ont été déployées le jour même, et leur effet est mesuré plus bas.*
+
 | Priorité | Action | Effet attendu |
 |---|---|---|
 | 🔴 1 | **Alerte « homme mort »** (*dead man's switch*) : envoyer l'alerte `Watchdog` vers un service externe au cluster (par exemple healthchecks.io), qui alerte quand il **cesse** de la recevoir | Être prévenu quand la supervision elle-même tombe |
@@ -82,5 +84,33 @@ Après la reprise, les deux réplicas `whoami` sont restés sur `k3s-agent-1` et
 | 🟡 6 | `topologySpreadConstraints` sur les applications | Répartir les réplicas sur des nœuds différents |
 | ⚪ 7 | Stockage répliqué (Longhorn) ou 2 réplicas Prometheus | Rendre la supervision elle-même résistante à la perte d'un nœud. Coûteux en RAM pour ce serveur : à évaluer |
 
-## Pour aller plus loin
-Rejouer ce test sur **`k3s-agent-1`** une fois l'action 3 faite, pour vérifier que la perte du nœud qui porte Traefik n'interrompt plus le trafic web.
+## Vérification : deuxième test après les corrections
+Le même jour (13:56), même scénario sur le même nœud, après le déploiement des actions 1 à 6. `k3s-agent-2` portait cette fois **un réplica Traefik, un réplica `whoami` et Prometheus**.
+
+![Disponibilité pendant les deux tests](images/chaos-availability.svg)
+
+| Mesure | Test 1 | Test 2 | |
+|---|---|---|---|
+| Requêtes en échec | 12 / 569 | **6 / 570** | ✅ divisé par 2 |
+| Disponibilité sur le test | 97,9 % | **98,9 %** | ✅ |
+| Nœud déclaré `NotReady` | T+55 s | T+49 s | = |
+| Pod `whoami` recréé ailleurs | T+351 s | **T+81 s** | ✅ 49 s + tolérance de 30 s (action 5) |
+| Trafic web pendant la perte d'un Traefik | non testé | **maintenu** | ✅ le 2e réplica a pris le relais (action 3) |
+| Supervision aveugle | 7 min 36 s | ≈ 7 min 30 s | ❌ inchangé : volume lié au nœud (action 7 non faite) |
+| Alerte « homme mort » | inexistante | **pings arrêtés de T+264 s à T+538 s** | ⚠️ voir ci-dessous |
+
+### Ce que le deuxième test a appris
+**1. Les 6 échecs restants viennent probablement de la couche d'entrée, pas de l'application.** Le réessai Traefik (action 4) protège le chemin Traefik → `whoami`. Mais les requêtes arrivent d'abord sur l'IP de `k3s-server`, où le load balancer intégré de k3s (ServiceLB) les répartit entre **les deux** pods Traefik, y compris celui du nœud mort. Ces requêtes-là expirent avant même d'atteindre Traefik, donc aucun réessai n'est possible. Correction proposée : `externalTrafficPolicy: Local` sur le service Traefik, pour que chaque nœud n'envoie le trafic qu'à son Traefik local.
+
+**2. L'alerte « homme mort » fonctionne, mais avec un délai.** Les journaux d'Alertmanager montrent que les envois vers healthchecks.io ont **continué pendant 4 min 24 s** après la mort de Prometheus. Alertmanager garde une alerte active jusqu'à son expiration, environ 4 cycles d'envoi de Prometheus. Les envois ne se sont arrêtés qu'à T+264 s, et ont repris à T+538 s. Conséquence : avec une période de 5 min et une grâce de 5 min côté healthchecks.io, **cette panne de 7 min serait passée inaperçue**. Avec une période de 1 min et une grâce de 2 min, l'alerte partirait vers T+7 min.
+
+**3. Discord n'a rien reçu, et c'est normal** : sans Prometheus, aucune règle d'alerte n'est évaluée. Seule l'alerte « homme mort », qui est externe, peut signaler ce type de panne.
+
+## Actions restantes
+| Priorité | Action | État |
+|---|---|---|
+| 🔴 | Renseigner les vraies URLs Discord et healthchecks.io (`~/.homelab/*.txt` puis `./run.sh bootstrap-secrets.yml`) | ⏳ à faire par le propriétaire des comptes |
+| 🔴 | healthchecks.io : **période 1 min, grâce 2 min** | ⏳ |
+| 🟠 | `externalTrafficPolicy: Local` sur le service Traefik, puis rejouer le test | ⏳ |
+| 🟠 | IP virtuelle flottante (kube-vip ou MetalLB) : l'adresse d'entrée pointe encore vers `k3s-server` seul | ⏳ |
+| ⚪ | Supervision résistante à la perte d'un nœud (stockage répliqué ou 2 Prometheus) | ⏳ à évaluer (RAM) |

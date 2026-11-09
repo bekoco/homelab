@@ -10,3 +10,6 @@ crash.log
 !*.env.example
 kubeconfig
 ansible/inventory.ini
+
+# Fichiers temporaires du navigateur de capture
+.playwright-mcp/

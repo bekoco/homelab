@@ -23,3 +23,12 @@ Les journaux bruts et le resume sont enregistres dans `chaos/results/`.
 | H5 | Au redemarrage, le noeud rejoint le cluster et tout revient a la normale sans intervention |
 
 Resultats et analyse : voir le [post-mortem](../docs/postmortem-2026-11-09-perte-k3s-agent-2.md).
+
+## Test du 2026-11-09 (13:56) : meme scenario apres corrections
+Verification des actions du post-mortem (Traefik en 2 replicas, reessai rapide, tolerance de 30 s, alerte homme mort) : 6 echecs au lieu de 12, pod recree a T+81 s au lieu de T+351 s. Details dans le post-mortem.
+
+```bash
+python3 chaos/plot.py docs/images/chaos-availability.svg \
+  "Test 1 (avant)" chaos/results/2026-11-09_1234-k3s-agent-2 \
+  "Test 2 (apres)" chaos/results/2026-11-09_1355-k3s-agent-2
+```

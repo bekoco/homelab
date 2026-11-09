@@ -1,0 +1,23 @@
+=== Test de panne : 2026-11-09_1355-k3s-agent-2
+Requetes HTTP : 570, en echec : 6 (1.05 % de disponibilite perdue)
+  coupure HTTP de T+0s a T+0s (1 s)
+  coupure HTTP de T+9s a T+9s (1 s)
+  coupure HTTP de T+14s a T+17s (4 s)
+  coupure HTTP de T+35s a T+35s (1 s)
+  coupure HTTP de T+42s a T+42s (1 s)
+Chronologie :
+     T-60s  BASELINE
+      T+0s  PANNE
+    T+420s  REPRISE
+    T+446s  NODE_READY
+    T+566s  FIN
+     T+49s  node_notready
+     T+81s  evict:whoami-7d68fb5454-fgtf2
+    T+347s  evict:prometheus-monitoring-kube-prometheus-prometheus-0
+    T+444s  node_ready
+Etat final des pods :
+  whoami-7d68fb5454-gswr7                                      Running    k3s-agent-1
+  whoami-7d68fb5454-w4tnh                                      Running    k3s-server
+  monitoring-kube-prometheus-operator-7659c97864-9w25q         Running    k3s-agent-1
+  monitoring-kube-state-metrics-7d94c4cbd8-9k95k               Running    k3s-server
+  prometheus-monitoring-kube-prometheus-prometheus-0           Running    k3s-agent-2
